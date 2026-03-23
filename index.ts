@@ -399,24 +399,8 @@ export async function createClaudeCodeBot(config: BotConfig) {
   // Initialize PermissionRequest handler — shows Allow/Deny buttons for unapproved tools
   permReqState.handler = createPermissionRequestHandler(bot, getActiveSessionChannel);
 
-  // Check for updates (non-blocking)
-  runVersionCheck().then(async ({ updateAvailable, embed }) => {
-    if (updateAvailable && embed) {
-      const channel = bot.getChannel();
-      if (channel) {
-        const { EmbedBuilder } = await import("npm:discord.js@14.14.1");
-        const discordEmbed = new EmbedBuilder()
-          .setColor(embed.color)
-          .setTitle(embed.title)
-          .setDescription(embed.description)
-          .setTimestamp();
-        embed.fields.forEach(f => discordEmbed.addFields(f));
-        await channel.send({ embeds: [discordEmbed] });
-      }
-    }
-  }).catch(() => { /* version check is best-effort */ });
-
-  // Start periodic update checks (every 12 hours)
+  // Start periodic update checks (every 12 hours, with initial check)
+  // Only sends notification if update is available
   startPeriodicUpdateCheck(async (result) => {
     try {
       const channel = bot.getChannel();

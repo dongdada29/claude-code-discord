@@ -116,6 +116,23 @@ MONITOR_BOT_IDS=987654321,111111111      # Comma-separated bot/webhook/user IDs 
 | `HTTPS_PROXY` | No | HTTPS proxy URL (also reads `https_proxy`) |
 | `NO_PROXY` | No | Comma-separated hosts to bypass proxy |
 
+### GLM API Support (智谱 AI)
+
+The bot supports [GLM API](https://open.bigmodel.cn/) as a drop-in replacement for Anthropic API:
+
+```env
+# GLM API Configuration
+ANTHROPIC_BASE_URL=https://open.bigmodel.cn/api/anthropic
+ANTHROPIC_AUTH_TOKEN=your_glm_api_token
+ANTHROPIC_MODEL=glm-5
+ANTHROPIC_DEFAULT_OPUS_MODEL=glm-5
+ANTHROPIC_DEFAULT_SONNET_MODEL=glm-5
+ANTHROPIC_DEFAULT_HAIKU_MODEL=glm-5
+CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1
+```
+
+See [GLM API Support Documentation](docs/glm-api-support.md) for full details.
+
 > CLI flags override environment variables. Environment variables override `.env` file values.
 
 ## Startup Options
