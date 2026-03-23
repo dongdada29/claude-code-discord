@@ -206,7 +206,25 @@ export async function sendToClaudeCode(
         // Enable experimental Agent Teams if configured
         ...(modelOptions?.enableAgentTeams && { CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS: '1' }),
       };
-      
+
+      // GLM API 兼容性：从 .env 读取并传递给 Claude 子进程
+      const glmEnvVars = [
+        'ANTHROPIC_BASE_URL',
+        'ANTHROPIC_AUTH_TOKEN',
+        'ANTHROPIC_MODEL',
+        'ANTHROPIC_DEFAULT_OPUS_MODEL',
+        'ANTHROPIC_DEFAULT_SONNET_MODEL',
+        'ANTHROPIC_DEFAULT_HAIKU_MODEL',
+        'ANTHROPIC_API_KEY',
+        'CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC',
+      ];
+      for (const key of glmEnvVars) {
+        const value = Deno.env.get(key);
+        if (value) {
+          envVars[key] = value;
+        }
+      }
+
       // Apply extra env vars (proxy settings, etc.)
       if (modelOptions?.extraEnv) {
         Object.assign(envVars, modelOptions.extraEnv);
