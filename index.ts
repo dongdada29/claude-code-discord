@@ -297,39 +297,58 @@ export async function createClaudeCodeBot(config: BotConfig) {
       const prompt = message.content.trim();
       if (!prompt) return;
 
-      // Show typing indicator
-      await message.channel.sendTyping();
+      try {
+        // Show typing indicator
+        await message.channel.sendTyping();
 
-      // Get or create session for this channel
-      const channelId = message.channelId;
-      let activeSessionId = allHandlers.claude.getSessionForChannel(channelId);
-      const controller = new AbortController();
-      claudeController = controller;
+        // Get or create session for this channel
+        const channelId = message.channelId;
+        const activeSessionId = allHandlers.claude.getSessionForChannel(channelId);
+        const controller = new AbortController();
+        claudeController = controller;
 
-      const activeSender = sendClaudeMessages;
+        const activeSender = sendClaudeMessages;
 
-      const result = await sendToClaudeCode(
-        workDir,
-        prompt,
-        controller,
-        activeSessionId,
-        undefined,
-        (jsonData) => {
-          const claudeMessages = convertToClaudeMessages(jsonData);
-          if (claudeMessages.length > 0) {
-            activeSender(claudeMessages).catch(() => {});
-          }
-        },
-        false,
-        allHandlers.claude.getQueryOptions?.()
-      );
+        const result = await sendToClaudeCode(
+          workDir,
+          prompt,
+          controller,
+          activeSessionId,
+          undefined,
+          (jsonData) => {
+            const claudeMessages = convertToClaudeMessages(jsonData);
+            if (claudeMessages.length > 0) {
+              activeSender(claudeMessages).catch(() => {});
+            }
+          },
+          false,
+          allHandlers.claude.getQueryOptions?.()
+        );
 
-      // Track session
-      if (result.sessionId) {
-        allHandlers.claude.setSessionForChannel(channelId, result.sessionId);
+        // Track session
+        if (result.sessionId) {
+          allHandlers.claude.setSessionForChannel(channelId, result.sessionId);
+        }
+        claudeSessionId = result.sessionId;
+      } catch (error) {
+        console.error('[Chat] Error processing message:', error);
+        // Send error message to Discord
+        try {
+          const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+          await message.channel.send({
+            embeds: [{
+              color: 0xff4444,
+              title: '❌ Error',
+              description: `Failed to process your message: ${errorMessage}`,
+              timestamp: true
+            }]
+          });
+        } catch {
+          // Ignore errors when sending error message
+        }
+      } finally {
+        claudeController = null;
       }
-      claudeSessionId = result.sessionId;
-      claudeController = null;
     },
     ...(monitorChannelId && monitorBotIds?.length && {
       monitorConfig: {

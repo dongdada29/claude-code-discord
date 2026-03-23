@@ -559,11 +559,16 @@ export async function createDiscordBot(
   });
 
   client.on(Events.InteractionCreate, async (interaction) => {
-    // Debug: log all interactions
-    console.log(`[DEBUG] Received interaction: ${interaction.type} from ${interaction.user.tag} in ${interaction.guild?.name || 'DM'}`);
+    // Debug logging (only when DEBUG=1)
+    const isDebug = Deno.env.get("DEBUG") === "1";
+    if (isDebug) {
+      console.log(`[DEBUG] Received interaction: ${interaction.type} from ${interaction.user.tag} in ${interaction.guild?.name || 'DM'}`);
+    }
 
     if (interaction.isCommand()) {
-      console.log(`[DEBUG] Command: ${interaction.commandName}`);
+      if (isDebug) {
+        console.log(`[DEBUG] Command: ${interaction.commandName}`);
+      }
       await handleCommand(interaction as CommandInteraction);
     } else if (interaction.isAutocomplete()) {
       await handleAutocomplete(interaction as AutocompleteInteraction);

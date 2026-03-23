@@ -338,36 +338,30 @@ export async function sendToClaudeCode(
       const effortLabel = modelOptions?.effort ? `, effort=${modelOptions.effort}` : '';
       console.log(`Claude Agent SDK: Running with ${modelToUse || 'default'} model, permission=${permMode}${thinkingLabel}${effortLabel}...`);
 
-      // Debug: Print GLM API env vars
-      console.log(`[DEBUG] GLM API Config: BASE_URL=${envVars.ANTHROPIC_BASE_URL}, MODEL=${envVars.ANTHROPIC_MODEL}`);
-      console.log(`[DEBUG] Auth token present: ${!!envVars.ANTHROPIC_AUTH_TOKEN}`);
+      // Debug logging (only when DEBUG=1)
+      const isDebug = Deno.env.get("DEBUG") === "1";
+      if (isDebug) {
+        console.log(`[DEBUG] GLM API Config: BASE_URL=${envVars.ANTHROPIC_BASE_URL}, MODEL=${envVars.ANTHROPIC_MODEL}`);
+        console.log(`[DEBUG] Auth token present: ${!!envVars.ANTHROPIC_AUTH_TOKEN}`);
+        console.log(`[DEBUG] Query options: cwd=${queryOptions.options?.cwd}, permissionMode=${queryOptions.options?.permissionMode}`);
+      }
       if (continueMode) {
         console.log(`Continue mode: Reading latest conversation in directory`);
       } else if (cleanedSessionId) {
         console.log(`Session resuming with ID: ${cleanedSessionId}`);
       }
-      
-      console.log(`[DEBUG] Calling claudeQuery with options...`);
-      console.log(`[DEBUG] Query options (partial): ${JSON.stringify({
-        prompt: queryOptions.prompt?.substring(0, 50),
-        cwd: queryOptions.options?.cwd,
-        permissionMode: queryOptions.options?.permissionMode,
-        hasEnv: !!queryOptions.options?.env,
-        envBaseUrl: queryOptions.options?.env?.ANTHROPIC_BASE_URL,
-      })}`);
 
       const iterator = claudeQuery(queryOptions);
-      console.log(`[DEBUG] claudeQuery returned iterator, Starting iteration...`);
 
       // Store query reference for mid-session controls (interrupt, rewind, info)
       setActiveQuery(iterator);
       clearTrackedMessages();
-      
+
       const currentMessages: SDKMessage[] = [];
       let currentResponse = "";
       let currentSessionId: string | undefined;
       let turnCount = 0;
-      
+
       for await (const message of iterator) {
         // Check AbortSignal to stop iteration
         if (controller.signal.aborted) {
@@ -375,7 +369,9 @@ export async function sendToClaudeCode(
           break;
         }
 
-        console.log(`[DEBUG] Received message type: ${message.type}`);
+        if (isDebug) {
+          console.log(`[DEBUG] Received message type: ${message.type}`);
+        }
         currentMessages.push(message);
         
         // For JSON streams, call dedicated callback
