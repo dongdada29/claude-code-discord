@@ -1,10 +1,28 @@
 import type { ClaudeMessage } from "./types.ts";
 
+// Whether to show verbose messages (system init, thinking)
+const VERBOSE_MESSAGES = Deno.env.get("DISCORD_VERBOSE") === "1";
+
 // Convert JSON messages to ClaudeMessage
 // deno-lint-ignore no-explicit-any
 export function convertToClaudeMessages(jsonData: any): ClaudeMessage[] {
   const messages: ClaudeMessage[] = [];
-  
+
+  // Skip verbose system messages unless VERBOSE mode is enabled
+  if (!VERBOSE_MESSAGES) {
+    // Skip system init messages (redundant with initial status)
+    if (jsonData.type === 'system' && jsonData.subtype === 'init') {
+      return [];
+    }
+    // Skip thinking messages (internal detail)
+    if (jsonData.type === 'assistant') {
+      const hasOnlyThinking = jsonData.message?.content?.every((c: any) => c.type === 'thinking');
+      if (hasOnlyThinking) {
+        return [];
+      }
+    }
+  }
+
   if (jsonData.type === 'assistant') {
     if (jsonData.message?.content) {
       const textContent = jsonData.message.content
@@ -31,17 +49,19 @@ export function convertToClaudeMessages(jsonData: any): ClaudeMessage[] {
         });
       }
       
-      // Process thinking content
-      const thinkingContent = jsonData.message.content
-        // deno-lint-ignore no-explicit-any
-        .filter((c: any) => c.type === 'thinking');
-      
-      for (const thinking of thinkingContent) {
-        if (thinking.thinking) {
-          messages.push({
-            type: 'thinking',
-            content: thinking.thinking
-          });
+      // Process thinking content (skip in non-verbose mode)
+      if (VERBOSE_MESSAGES) {
+        const thinkingContent = jsonData.message.content
+          // deno-lint-ignore no-explicit-any
+          .filter((c: any) => c.type === 'thinking');
+
+        for (const thinking of thinkingContent) {
+          if (thinking.thinking) {
+            messages.push({
+              type: 'thinking',
+              content: thinking.thinking
+            });
+          }
         }
       }
       

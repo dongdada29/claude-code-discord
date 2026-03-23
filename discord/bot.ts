@@ -559,7 +559,11 @@ export async function createDiscordBot(
   });
 
   client.on(Events.InteractionCreate, async (interaction) => {
+    // Debug: log all interactions
+    console.log(`[DEBUG] Received interaction: ${interaction.type} from ${interaction.user.tag} in ${interaction.guild?.name || 'DM'}`);
+
     if (interaction.isCommand()) {
+      console.log(`[DEBUG] Command: ${interaction.commandName}`);
       await handleCommand(interaction as CommandInteraction);
     } else if (interaction.isAutocomplete()) {
       await handleAutocomplete(interaction as AutocompleteInteraction);
@@ -567,6 +571,33 @@ export async function createDiscordBot(
       await handleButton(interaction as ButtonInteraction);
     }
   });
+
+  // Auto-respond to regular messages in bot's channel (no slash command needed)
+  if (dependencies.onChatMessage) {
+    client.on(Events.MessageCreate, async (message: Message) => {
+      // Skip bot's own messages
+      if (message.author.id === client.user?.id) return;
+      // Only process messages in our channel
+      if (!isOurChannel(message.channelId)) return;
+      // Skip Discord slash commands (they're handled by interaction handler)
+      // But allow Claude Code slash commands like /compact, /cost, /init, etc.
+      if (message.content.startsWith('/')) {
+        const claudeCodeCommands = [
+          '/compact', '/context', '/cost', '/init', '/pr-comments',
+          '/release-notes', '/review', '/security-review', '/insights', '/debug'
+        ];
+        const isClaudeCodeCommand = claudeCodeCommands.some(cmd =>
+          message.content.toLowerCase().startsWith(cmd)
+        );
+        if (!isClaudeCodeCommand) return;
+      }
+      // Skip empty messages
+      if (!message.content.trim()) return;
+
+      console.log(`[Chat] Message from ${message.author.tag}: ${message.content.substring(0, 50)}...`);
+      await dependencies.onChatMessage(message);
+    });
+  }
 
   // Channel monitoring -- auto-respond to messages from specific bots/webhooks
   if (dependencies.monitorConfig) {

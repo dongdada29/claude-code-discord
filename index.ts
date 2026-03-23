@@ -19,7 +19,7 @@ import {
   type MessageContent,
   SessionThreadManager,
 } from "./discord/index.ts";
-import type { TextChannel } from "npm:discord.js@14.14.1";
+import type { TextChannel, Message } from "npm:discord.js@14.14.1";
 
 import { getGitInfo } from "./git/index.ts";
 import { createClaudeSender, expandableContent, sendToClaudeCode, convertToClaudeMessages, type DiscordSender, type ClaudeMessage, type SessionThreadCallbacks } from "./claude/index.ts";
@@ -291,6 +291,45 @@ export async function createClaudeCodeBot(config: BotConfig) {
     botSettings,
     onContinueSession: async (ctx) => {
       await allHandlers.claude.onContinue(ctx);
+    },
+    // Auto-respond to regular chat messages (no slash command needed)
+    onChatMessage: async (message) => {
+      const prompt = message.content.trim();
+      if (!prompt) return;
+
+      // Show typing indicator
+      await message.channel.sendTyping();
+
+      // Get or create session for this channel
+      const channelId = message.channelId;
+      let activeSessionId = allHandlers.claude.getSessionForChannel(channelId);
+      const controller = new AbortController();
+      claudeController = controller;
+
+      const activeSender = sendClaudeMessages;
+
+      const result = await sendToClaudeCode(
+        workDir,
+        prompt,
+        controller,
+        activeSessionId,
+        undefined,
+        (jsonData) => {
+          const claudeMessages = convertToClaudeMessages(jsonData);
+          if (claudeMessages.length > 0) {
+            activeSender(claudeMessages).catch(() => {});
+          }
+        },
+        false,
+        allHandlers.claude.getQueryOptions?.()
+      );
+
+      // Track session
+      if (result.sessionId) {
+        allHandlers.claude.setSessionForChannel(channelId, result.sessionId);
+      }
+      claudeSessionId = result.sessionId;
+      claudeController = null;
     },
     ...(monitorChannelId && monitorBotIds?.length && {
       monitorConfig: {

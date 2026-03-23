@@ -327,6 +327,11 @@ export function createClaudeHandlers(deps: ClaudeHandlerDeps) {
       deps.setClaudeSessionId(undefined);
 
       return true;
-    }
+    },
+
+    // Expose deps for chat message handler
+    getSessionForChannel: deps.getSessionForChannel,
+    setSessionForChannel: deps.setSessionForChannel,
+    getQueryOptions: deps.getQueryOptions,
   };
 }

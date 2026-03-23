@@ -1,5 +1,5 @@
 // Discord module types
-import type { TextChannel } from "npm:discord.js@14.14.1";
+import type { TextChannel, Message } from "npm:discord.js@14.14.1";
 import type { BotSettings } from "../types/shared.ts";
 
 export interface EmbedData {
@@ -127,4 +127,6 @@ export interface BotDependencies {
   onContinueSession?: (ctx: InteractionContext) => Promise<void>;
   /** Optional channel monitoring config for auto-responding to messages */
   monitorConfig?: MonitorConfig;
+  /** Callback for auto-responding to regular chat messages in bot's channel */
+  onChatMessage?: (message: Message) => Promise<void>;
 }

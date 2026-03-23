@@ -194,13 +194,23 @@ export async function sendToClaudeCode(
     try {
       // Determine which model to use
       const modelToUse = overrideModel || modelOptions?.model;
-      
+
       // Determine permission mode (defaults to dontAsk for Discord — denies anything not pre-approved)
       const permMode = modelOptions?.permissionMode || "dontAsk";
-      
+
       // Build environment variables for the subprocess
+      // IMPORTANT: Filter out variables that might conflict with the SDK subprocess
+      // (e.g., CLAUDE_CODE_ENTRYPOINT, CLAUDECODE from the current Claude Code process)
+      const conflictingVars = [
+        'CLAUDE_CODE_ENTRYPOINT',
+        'CLAUDECODE',
+        'CLAUDE_CODE_SESSION_ID',
+        'CLAUDE_CODE_IS_TTY',
+      ];
       const envVars: Record<string, string> = {
-        ...Object.fromEntries(Object.entries(Deno.env.toObject())),
+        ...Object.fromEntries(
+          Object.entries(Deno.env.toObject()).filter(([key]) => !conflictingVars.includes(key))
+        ),
         // Enable the Tasks system for subagent background tasks (SDK v0.2.19+)
         CLAUDE_CODE_ENABLE_TASKS: '1',
         // Enable experimental Agent Teams if configured
@@ -327,13 +337,28 @@ export async function sendToClaudeCode(
         : '';
       const effortLabel = modelOptions?.effort ? `, effort=${modelOptions.effort}` : '';
       console.log(`Claude Agent SDK: Running with ${modelToUse || 'default'} model, permission=${permMode}${thinkingLabel}${effortLabel}...`);
+
+      // Debug: Print GLM API env vars
+      console.log(`[DEBUG] GLM API Config: BASE_URL=${envVars.ANTHROPIC_BASE_URL}, MODEL=${envVars.ANTHROPIC_MODEL}`);
+      console.log(`[DEBUG] Auth token present: ${!!envVars.ANTHROPIC_AUTH_TOKEN}`);
       if (continueMode) {
         console.log(`Continue mode: Reading latest conversation in directory`);
       } else if (cleanedSessionId) {
         console.log(`Session resuming with ID: ${cleanedSessionId}`);
       }
       
+      console.log(`[DEBUG] Calling claudeQuery with options...`);
+      console.log(`[DEBUG] Query options (partial): ${JSON.stringify({
+        prompt: queryOptions.prompt?.substring(0, 50),
+        cwd: queryOptions.options?.cwd,
+        permissionMode: queryOptions.options?.permissionMode,
+        hasEnv: !!queryOptions.options?.env,
+        envBaseUrl: queryOptions.options?.env?.ANTHROPIC_BASE_URL,
+      })}`);
+
       const iterator = claudeQuery(queryOptions);
+      console.log(`[DEBUG] claudeQuery returned iterator, Starting iteration...`);
+
       // Store query reference for mid-session controls (interrupt, rewind, info)
       setActiveQuery(iterator);
       clearTrackedMessages();
@@ -349,7 +374,8 @@ export async function sendToClaudeCode(
           console.log(`Claude Code: Abort signal detected, stopping iteration`);
           break;
         }
-        
+
+        console.log(`[DEBUG] Received message type: ${message.type}`);
         currentMessages.push(message);
         
         // For JSON streams, call dedicated callback
